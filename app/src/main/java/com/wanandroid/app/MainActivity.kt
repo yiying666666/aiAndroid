@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val isLoggedIn by userPreferencesDataStore.isLoggedIn.collectAsStateWithLifecycle(false)
+            val isLoggedIn by userPreferencesDataStore.isLoggedIn.collectAsStateWithLifecycle(initialValue = null)
             WanAndroidTheme {
                 AppNavigation(isLoggedIn = isLoggedIn)
             }

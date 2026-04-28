@@ -1,119 +1,149 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为 Claude Code（claude.ai/code）在该仓库中工作时提供指导。
 
-## Build Commands
+## 项目简介
+
+基于 **组件化 + 模块化 + Kotlin + 协程 + Flow + Retrofit + Jetpack Compose + MVVM** 架构实现的 [WanAndroid](https://wanandroid.com) 客户端。API 文档见 [wanandroid.com/blog/show/2](https://wanandroid.com/blog/show/2)，接口 Base URL 为 `https://wanandroid.com`。
+
+---
+
+## 构建命令
 
 ```bash
-./gradlew assembleDebug          # Build debug APK
-./gradlew assembleRelease        # Build release APK (minification enabled)
-./gradlew test                   # Run unit tests
-./gradlew connectedAndroidTest   # Run instrumentation tests
-./gradlew :feature:home:test     # Run tests for a single module
+./gradlew assembleDebug            # 构建 Debug APK
+./gradlew assembleRelease          # 构建 Release APK（已开启混淆）
+./gradlew test                     # 运行所有单元测试
+./gradlew connectedAndroidTest     # 运行仪器测试（需连接设备）
+./gradlew :feature:home:test       # 运行单个模块的单元测试
 ```
 
-## Architecture
+---
 
-Multi-module MVVM + Repository pattern with Hilt DI and Jetpack Compose.
+## 整体架构
 
-### Module Graph
+多模块 **MVVM + Repository** 模式，使用 Hilt 依赖注入，UI 层全面采用 Jetpack Compose。
+
+### 模块依赖图
 
 ```
 app
 ├── feature:auth / home / project / wechat / navi / mine / search / article
-├── core:ui          (Compose components, Material3 theme)
-├── core:data        (repositories, paging, DataStore)
-│   └── core:network (Retrofit, OkHttp, cookie jar)
-└── core:model       (serializable data classes — no dependencies)
+├── core:ui          （Compose 公共组件、Material3 主题）
+├── core:data        （Repository、Paging、DataStore）
+│   └── core:network （Retrofit、OkHttp、Cookie 持久化）
+└── core:model       （可序列化数据类，无其他依赖）
 ```
 
-`core:model` has zero dependencies on other core modules. Feature modules depend on `core:ui` + `core:data` + `core:model`; `feature:article` only depends on `core:ui` (intentionally lightweight).
+- `core:model` 不依赖任何其他核心模块，是最底层的数据定义层
+- 功能模块统一依赖 `core:ui` + `core:data` + `core:model`
+- `feature:article` 仅依赖 `core:ui`（WebView 展示，刻意保持轻量）
 
-### Data Flow
+---
+
+## 数据流
 
 ```
-Screen (collectAsStateWithLifecycle)
-  → ViewModel (MutableStateFlow<*UiState>, viewModelScope)
-  → Repository (suspend fun returning Result<T>)
-  → WanApiService (Retrofit, ApiResponse<T>.toResult())
+Screen（collectAsStateWithLifecycle）
+  → ViewModel（MutableStateFlow<*UiState>，viewModelScope）
+  → Repository（suspend 函数，返回 Result<T>）
+  → WanApiService（Retrofit 接口，ApiResponse<T>.toResult()）
 ```
 
-API responses are wrapped in `ApiResponse<T>`. The `.toResult()` extension converts them to `Result<T>`, throwing `ApiException` when `errorCode != 0`. Repositories never throw — callers use `.onSuccess / .onFailure`.
+- API 响应统一用 `ApiResponse<T>` 包裹；`.toResult()` 扩展函数将其转换为 `Result<T>`，当 `errorCode != 0` 时抛出 `ApiException`
+- Repository 层**不对外抛异常**，调用方使用 `.onSuccess / .onFailure` 处理结果
+- 分页页面（首页、项目、公众号、搜索）Repository 返回 `Flow<PagingData<T>>`，由自定义 `*PagingSource` 驱动；ViewModel 调用 `.cachedIn(viewModelScope)`，UI 层用 `collectAsLazyPagingItems()` 消费
 
-For paginated screens (home, project, wechat, search), the repository returns `Flow<PagingData<T>>` from a `Pager` with a custom `*PagingSource`. ViewModels call `.cachedIn(viewModelScope)` and screens collect via `collectAsLazyPagingItems()`.
+---
 
-### State Management
+## 核心机制
 
-Each ViewModel owns a `MutableStateFlow<*UiState>` (data class). All mutations use `_uiState.update { it.copy(...) }`. The read-only `.asStateFlow()` is exposed to the UI. Never mutate UI state directly.
+### 状态管理
 
-### Navigation
+- 每个 ViewModel 持有 `MutableStateFlow<*UiState>`（数据类）
+- 状态更新统一使用 `_uiState.update { it.copy(...) }`，禁止直接赋值
+- 对外只暴露 `.asStateFlow()` 只读流
 
-`AppNavigation.kt` defines two levels:
-- **Root NavHost**: `AppRoute` sealed class — `Login`, `Register`, `Main`, `Search`, `ArticleDetail`
-- **Nested NavHost** inside `MainScaffold`: `BottomNavItem` sealed class — 5 bottom tabs
+### 导航
 
-Start destination is determined at launch from `UserPreferencesDataStore.isLoggedIn`. Article deep links use `Uri.encode(url)` to handle special characters in route parameters.
+`app/src/main/java/com/wanandroid/app/navigation/AppNavigation.kt` 定义两层导航：
 
-### Dependency Injection
+- **根 NavHost**：`AppRoute` 密封类 —— `Login`、`Register`、`Main`、`Search`、`ArticleDetail`
+- **嵌套 NavHost**（MainScaffold 内）：`BottomNavItem` 密封类 —— 5 个底部 Tab
 
-- `@HiltAndroidApp` on `WanApplication`, `@AndroidEntryPoint` on `MainActivity`
-- `@HiltViewModel` + `@Inject constructor` on all ViewModels
-- `DataModule` (`core/data/di/`) binds repository interfaces to implementations
-- `NetworkModule` (`core/network/di/`) provides `OkHttpClient`, `Retrofit`, `WanApiService`
-- All network and data components are `@Singleton`
+启动目标由 `UserPreferencesDataStore.isLoggedIn` 决定；文章详情路由使用 `Uri.encode(url)` 对 URL 参数编码，防止特殊字符破坏路由。
 
-### Network
+### 依赖注入（Hilt）
 
-- Base URL: `https://wanandroid.com`
-- Serialization: `kotlinx.serialization` with `ignoreUnknownKeys = true`, `coerceInputValues = true`
-- Cookies persisted via `PersistentCookieJar` → DataStore; cleared on logout
-- Logging: `HttpLoggingInterceptor` with `Level.BODY` in debug, `Level.NONE` in release; Logcat tag `WanNetwork`
-- Timeouts: 15 s for connect / read / write
+- `WanApplication` 标注 `@HiltAndroidApp`，`MainActivity` 标注 `@AndroidEntryPoint`
+- 所有 ViewModel 使用 `@HiltViewModel` + `@Inject constructor`
+- `DataModule`（`core/data/di/`）：将 Repository 接口绑定到实现类
+- `NetworkModule`（`core/network/di/`）：提供 `OkHttpClient`、`Retrofit`、`WanApiService`
+- 网络与数据层组件均为 `@Singleton`
 
-### User Preferences
+### 网络层
 
-`UserPreferencesDataStore` (DataStore Preferences) stores login state, user ID, username, nickname, and avatar. Injected into `MainActivity` (for auth routing) and repositories that need login context.
+- Base URL：`https://wanandroid.com`
+- 序列化：`kotlinx.serialization`，配置 `ignoreUnknownKeys = true`、`coerceInputValues = true`
+- Cookie：`PersistentCookieJar` 持久化到 DataStore，退出登录时清除
+- 日志：Debug 包输出 `Level.BODY`，Release 包 `Level.NONE`；Logcat Tag 为 `WanNetwork`
+- 响应拦截器：自动将响应体中的 `https://www.wanandroid.com` 替换为 `https://wanandroid.com`
+- 超时：连接 / 读取 / 写入均为 15 秒
 
-## Coding Conventions
+### 用户偏好存储
 
-### Naming
+`UserPreferencesDataStore`（DataStore Preferences）存储登录状态、用户 ID、用户名、昵称、头像，注入到 `MainActivity`（用于路由判断）和需要登录上下文的 Repository。
 
-| Artifact | Pattern | Example |
+---
+
+## 编码规范
+
+### 命名约定
+
+| 类型 | 命名规则 | 示例 |
 |---|---|---|
-| Screen composable | `*Screen.kt` | `HomeScreen.kt` |
+| 页面 Composable | `*Screen.kt` | `HomeScreen.kt` |
 | ViewModel | `*ViewModel.kt` | `HomeViewModel.kt` |
-| UI state | `*UiState` data class | `HomeUiState` |
-| Repository interface | `*Repository` | `AuthRepository` |
-| Repository impl | `*RepositoryImpl` | `AuthRepositoryImpl` |
-| Paging source | `*PagingSource` | `ArticlePagingSource` |
-| Hilt module | `*Module` | `DataModule` |
+| UI 状态 | `*UiState` 数据类 | `HomeUiState` |
+| Repository 接口 | `*Repository` | `AuthRepository` |
+| Repository 实现 | `*RepositoryImpl` | `AuthRepositoryImpl` |
+| 分页数据源 | `*PagingSource` | `ArticlePagingSource` |
+| Hilt 模块 | `*Module` | `DataModule` |
 
-### Feature Module Structure
+### 功能模块结构
 
-Every feature module follows exactly:
+每个 feature 模块严格遵循以下结构：
+
 ```
 feature/<name>/src/main/java/com/wanandroid/feature/<name>/
-├── <Name>Screen.kt
-└── <Name>ViewModel.kt
+├── <Name>Screen.kt     # UI 层，无状态，从 ViewModel 获取数据
+└── <Name>ViewModel.kt  # 状态管理，持有 UiState 和业务逻辑
 ```
 
-### Compose Patterns
+### Compose 规范
 
-- Public screens accept navigation callbacks as lambda parameters (no NavController passed in)
-- All composables accept `modifier: Modifier = Modifier`
-- Private sub-composables are `@Composable private fun`
-- Screens are stateless — all state flows from ViewModel via `collectAsStateWithLifecycle()`
+- 页面级 Composable 通过 **lambda 参数**接收导航回调，不传入 NavController
+- 所有 Composable 提供 `modifier: Modifier = Modifier` 默认参数
+- 内部子 Composable 声明为 `@Composable private fun`
+- 页面为无状态设计，所有状态通过 `collectAsStateWithLifecycle()` 从 ViewModel 流入
 
-### Key Libraries
+### Flow 使用模式
 
-| Library | Version | Notes |
+- 搜索、筛选等关键词变化场景使用 `flatMapLatest` 切换新流，避免展示过期结果
+- `stateIn(WhileSubscribed(5000))` 将冷流转换为 StateFlow，供 UI 安全订阅
+
+---
+
+## 关键依赖版本
+
+| 依赖 | 版本 | 说明 |
 |---|---|---|
 | Kotlin | 2.0.21 | `kotlin.code.style=official` |
-| Compose BOM | 2024.09.00 | Material3 throughout |
-| Hilt | 2.56.1 | KSP-based |
-| Retrofit | 2.11.0 | + kotlinx-serialization converter |
+| Compose BOM | 2024.09.00 | 全面使用 Material3 |
+| Hilt | 2.56.1 | 基于 KSP |
+| Retrofit | 2.11.0 | 搭配 kotlinx-serialization 转换器 |
 | OkHttp | 4.12.0 | |
-| Paging | 3.3.6 | page size 20, no placeholders |
-| Coil | 2.7.0 | `coil.compose` for images |
-| DataStore | 1.1.4 | Preferences (no Proto) |
-| Coroutines | 1.9.0 | `flatMapLatest` for search/filter flows |
+| Paging | 3.3.6 | 每页 20 条，禁用占位符 |
+| Coil | 2.7.0 | 使用 `coil.compose` 加载图片 |
+| DataStore | 1.1.4 | Preferences 模式（非 Proto） |
+| Coroutines | 1.9.0 | 搭配 Flow 使用 |

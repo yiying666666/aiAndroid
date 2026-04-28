@@ -26,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.wanandroid.app.SplashScreen
 import com.wanandroid.core.model.Article
 import com.wanandroid.feature.article.ArticleDetailScreen
 import com.wanandroid.feature.auth.LoginScreen
@@ -38,6 +39,7 @@ import com.wanandroid.feature.search.SearchScreen
 import com.wanandroid.feature.wechat.WechatScreen
 
 sealed class AppRoute(val route: String) {
+    object Splash : AppRoute("splash")
     object Login : AppRoute("auth/login")
     object Register : AppRoute("auth/register")
     object Main : AppRoute("main")
@@ -66,18 +68,27 @@ sealed class BottomNavItem(
 
 @Composable
 fun AppNavigation(
-    isLoggedIn: Boolean,
+    isLoggedIn: Boolean?,
     rootNavController: NavHostController = rememberNavController(),
 ) {
-    val startDestination = if (isLoggedIn) AppRoute.Main.route else AppRoute.Login.route
-
     fun onArticleClick(article: Article) {
         if (article.link.isNotBlank()) {
             rootNavController.navigate(AppRoute.ArticleDetail.createRoute(article.link, article.title))
         }
     }
 
-    NavHost(navController = rootNavController, startDestination = startDestination) {
+    NavHost(navController = rootNavController, startDestination = AppRoute.Splash.route) {
+        composable(AppRoute.Splash.route) {
+            SplashScreen(
+                isLoggedIn = isLoggedIn,
+                onSplashComplete = { loggedIn ->
+                    val dest = if (loggedIn) AppRoute.Main.route else AppRoute.Login.route
+                    rootNavController.navigate(dest) {
+                        popUpTo(AppRoute.Splash.route) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable(AppRoute.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
