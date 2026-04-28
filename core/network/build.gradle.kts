@@ -16,6 +16,15 @@ android {
     }
     kotlinOptions { jvmTarget = "11" }
     buildFeatures { buildConfig = true }
+    flavorDimensions += "env"
+    productFlavors {
+        create("dev") {
+            buildConfigField("String", "BASE_URL", "\"https://test.wanandroid.com\"")
+        }
+        create("prod") {
+            buildConfigField("String", "BASE_URL", "\"https://wanandroid.com\"")
+        }
+    }
 }
 
 dependencies {

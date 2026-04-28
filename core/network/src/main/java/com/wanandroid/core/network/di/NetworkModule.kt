@@ -75,7 +75,7 @@ abstract class NetworkModule {
         @Singleton
         fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit =
             Retrofit.Builder()
-                .baseUrl("https://wanandroid.com")
+                .baseUrl(BuildConfig.BASE_URL)
                 .client(okHttpClient)
                 .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
                 .build()
