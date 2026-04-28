@@ -3,7 +3,8 @@
     "allow": [
       "WebFetch(domain:www.wanandroid.com)",
       "Bash(git rm *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(xargs cat *)"
     ]
   }
 }
