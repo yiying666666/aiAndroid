@@ -1,1 +1,0 @@
-com.wanandroid.core.data
