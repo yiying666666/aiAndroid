@@ -5,6 +5,8 @@ import com.wanandroid.core.model.User
 import com.wanandroid.core.model.network.toResult
 import com.wanandroid.core.network.WanApiService
 import com.wanandroid.core.network.cookie.CookieCleaner
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
@@ -24,9 +26,11 @@ class AuthRepositoryImpl @Inject constructor(
         }.onSuccess { user -> userPrefs.saveUser(user) }
 
     override suspend fun logout(): Result<Unit> =
-        runCatching {
-            runCatching { api.logout() }  // 接口失败不影响本地清理
-            userPrefs.clearUser()
-            cookieCleaner.clearCookies()
+        withContext(NonCancellable) {
+            runCatching {
+                runCatching { api.logout() }  // 接口失败不影响本地清理
+                userPrefs.clearUser()
+                cookieCleaner.clearCookies()
+            }
         }
 }

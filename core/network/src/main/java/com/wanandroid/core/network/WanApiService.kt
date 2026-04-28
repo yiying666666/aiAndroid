@@ -32,7 +32,7 @@ interface WanApiService {
     ): ApiResponse<User>
 
     @GET("/user/logout/json")
-    suspend fun logout(): ApiResponse<Any>
+    suspend fun logout(): ApiResponse<Unit>
 
     @GET("/banner/json")
     suspend fun getBanners(): ApiResponse<List<Banner>>
@@ -68,10 +68,10 @@ interface WanApiService {
     ): ApiResponse<ArticleListData>
 
     @POST("/lg/collect/{id}/json")
-    suspend fun collectArticle(@Path("id") id: Int): ApiResponse<Any>
+    suspend fun collectArticle(@Path("id") id: Int): ApiResponse<Unit>
 
     @POST("/lg/uncollect_originId/{id}/json")
-    suspend fun uncollectArticle(@Path("id") id: Int): ApiResponse<Any>
+    suspend fun uncollectArticle(@Path("id") id: Int): ApiResponse<Unit>
 
     @GET("/hotkey/json")
     suspend fun getHotKeys(): ApiResponse<List<HotKey>>
