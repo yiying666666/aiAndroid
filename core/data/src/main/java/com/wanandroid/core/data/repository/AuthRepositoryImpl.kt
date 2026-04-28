@@ -25,7 +25,7 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun logout(): Result<Unit> =
         runCatching {
-            api.logout()
+            runCatching { api.logout() }  // 接口失败不影响本地清理
             userPrefs.clearUser()
             cookieCleaner.clearCookies()
         }
