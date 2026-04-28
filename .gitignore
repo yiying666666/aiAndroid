@@ -13,3 +13,18 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Module build directories
+app/build
+core/data/build
+core/model/build
+core/network/build
+core/ui/build
+feature/article/build
+feature/auth/build
+feature/home/build
+feature/mine/build
+feature/navi/build
+feature/project/build
+feature/search/build
+feature/wechat/build

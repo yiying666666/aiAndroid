@@ -12,8 +12,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
@@ -46,9 +48,23 @@ abstract class NetworkModule {
                         else HttpLoggingInterceptor.Level.NONE
             }
 
+            val urlRewrite = Interceptor { chain ->
+                val response = chain.proceed(chain.request())
+                val body = response.body ?: return@Interceptor response
+                val contentType = body.contentType()
+                val rewritten = body.string().replace(
+                    "https://www.wanandroid.com",
+                    "https://wanandroid.com"
+                )
+                response.newBuilder()
+                    .body(rewritten.toResponseBody(contentType))
+                    .build()
+            }
+
             return OkHttpClient.Builder()
                 .cookieJar(cookieJar)
                 .addInterceptor(logging)
+                .addInterceptor(urlRewrite)
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
