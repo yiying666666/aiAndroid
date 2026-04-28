@@ -35,9 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -48,8 +46,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private val BackgroundGradient = Brush.verticalGradient(
@@ -69,15 +65,15 @@ fun SplashScreen(
     isLoggedIn: Boolean?,
     onSplashComplete: (Boolean) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
+    var countdownDone by remember { mutableStateOf(false) }
     var navigated by remember { mutableStateOf(false) }
 
-    fun navigate() {
-        if (navigated) return
-        navigated = true
-        scope.launch {
-            val loggedIn = snapshotFlow { isLoggedIn }.filterNotNull().first()
-            onSplashComplete(loggedIn)
+    // 两个条件都满足时触发导航：倒计时结束 + DataStore 已加载
+    // 用 LaunchedEffect(key) 而非闭包，isLoggedIn 每次 recompose 都是最新值
+    LaunchedEffect(countdownDone, isLoggedIn) {
+        if (countdownDone && isLoggedIn != null && !navigated) {
+            navigated = true
+            onSplashComplete(isLoggedIn)
         }
     }
 
@@ -140,7 +136,7 @@ fun SplashScreen(
         delay(1000)
         showSkip = true
         delay(2000)
-        navigate()
+        countdownDone = true  // 触发导航 LaunchedEffect
     }
 
     Box(
@@ -158,7 +154,9 @@ fun SplashScreen(
                 .align(Alignment.TopEnd)
                 .padding(top = 56.dp, end = 24.dp)
                 .alpha(skipAlpha)
-                .clickable(enabled = showSkip) { navigate() },
+                .clickable(enabled = showSkip && !navigated) {
+                    countdownDone = true  // 同样触发导航 LaunchedEffect
+                },
         )
 
         // 主体
