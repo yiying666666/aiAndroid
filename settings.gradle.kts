@@ -19,6 +19,9 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "My Application"
+rootProject.name = "WanAndroid"
 include(":app")
- 
+include(":core:model", ":core:network", ":core:data", ":core:ui")
+include(":feature:auth", ":feature:home", ":feature:project")
+include(":feature:wechat", ":feature:navi", ":feature:mine")
+include(":feature:search", ":feature:article")
