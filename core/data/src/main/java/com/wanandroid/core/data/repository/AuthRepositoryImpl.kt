@@ -2,6 +2,7 @@ package com.wanandroid.core.data.repository
 
 import com.wanandroid.core.data.datastore.UserPreferencesDataStore
 import com.wanandroid.core.model.User
+import com.wanandroid.core.model.network.runSuspendCatching
 import com.wanandroid.core.model.network.toResult
 import com.wanandroid.core.network.WanApiService
 import com.wanandroid.core.network.cookie.CookieCleaner
@@ -16,12 +17,12 @@ class AuthRepositoryImpl @Inject constructor(
 ) : AuthRepository {
 
     override suspend fun login(username: String, password: String): Result<User> =
-        runCatching {
+        runSuspendCatching {
             api.login(username, password).toResult().getOrThrow()
         }.onSuccess { user -> userPrefs.saveUser(user) }
 
     override suspend fun register(username: String, password: String, repassword: String): Result<User> =
-        runCatching {
+        runSuspendCatching {
             api.register(username, password, repassword).toResult().getOrThrow()
         }.onSuccess { user -> userPrefs.saveUser(user) }
 

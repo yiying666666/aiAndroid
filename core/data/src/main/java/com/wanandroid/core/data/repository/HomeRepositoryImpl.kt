@@ -6,6 +6,7 @@ import androidx.paging.PagingData
 import com.wanandroid.core.data.paging.ArticlePagingSource
 import com.wanandroid.core.model.Article
 import com.wanandroid.core.model.Banner
+import com.wanandroid.core.model.network.runSuspendCatching
 import com.wanandroid.core.model.network.toResult
 import com.wanandroid.core.network.WanApiService
 import kotlinx.coroutines.flow.Flow
@@ -16,7 +17,7 @@ class HomeRepositoryImpl @Inject constructor(
 ) : HomeRepository {
 
     override suspend fun getBanners(): Result<List<Banner>> =
-        runCatching { api.getBanners().toResult().getOrThrow() }
+        runSuspendCatching { api.getBanners().toResult().getOrThrow() }
 
     override fun getArticlesPagingFlow(): Flow<PagingData<Article>> =
         Pager(

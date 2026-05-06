@@ -31,6 +31,7 @@ class RegisterViewModel @Inject constructor(
     fun onUsernameChange(value: String) = _uiState.update { it.copy(username = value, errorMessage = null) }
     fun onPasswordChange(value: String) = _uiState.update { it.copy(password = value, errorMessage = null) }
     fun onRepasswordChange(value: String) = _uiState.update { it.copy(repassword = value, errorMessage = null) }
+    fun onRegisterNavigated() = _uiState.update { it.copy(registerSuccess = false) }
 
     fun register() {
         val state = _uiState.value

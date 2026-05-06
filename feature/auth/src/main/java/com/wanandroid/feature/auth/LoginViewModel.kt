@@ -29,6 +29,7 @@ class LoginViewModel @Inject constructor(
 
     fun onUsernameChange(value: String) = _uiState.update { it.copy(username = value, errorMessage = null) }
     fun onPasswordChange(value: String) = _uiState.update { it.copy(password = value, errorMessage = null) }
+    fun onLoginNavigated() = _uiState.update { it.copy(loginSuccess = false) }
 
     fun login() {
         val state = _uiState.value

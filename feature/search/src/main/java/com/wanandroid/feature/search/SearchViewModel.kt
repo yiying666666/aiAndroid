@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.wanandroid.core.data.repository.SearchRepository
-import com.wanandroid.core.data.repository.SearchRepositoryImpl
 import com.wanandroid.core.model.Article
 import com.wanandroid.core.model.HotKey
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,7 +29,7 @@ data class SearchUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
-    private val searchRepository: SearchRepositoryImpl,
+    private val searchRepository: SearchRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())

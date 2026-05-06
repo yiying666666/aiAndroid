@@ -62,7 +62,10 @@ fun RegisterScreen(
     val focusManager = LocalFocusManager.current
 
     LaunchedEffect(uiState.registerSuccess) {
-        if (uiState.registerSuccess) onRegisterSuccess()
+        if (uiState.registerSuccess) {
+            viewModel.onRegisterNavigated()
+            onRegisterSuccess()
+        }
     }
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { snackbarHostState.showSnackbar(it) }

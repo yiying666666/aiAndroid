@@ -5,6 +5,7 @@ import androidx.paging.PagingState
 import com.wanandroid.core.model.Article
 import com.wanandroid.core.model.network.toResult
 import com.wanandroid.core.network.WanApiService
+import kotlinx.coroutines.CancellationException
 
 class ArticlePagingSource(
     private val api: WanApiService,
@@ -25,6 +26,8 @@ class ArticlePagingSource(
                 prevKey = if (page == 0) null else page - 1,
                 nextKey = if (response.over) null else page + 1,
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             LoadResult.Error(e)
         }

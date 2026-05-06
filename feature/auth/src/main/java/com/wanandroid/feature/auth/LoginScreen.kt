@@ -60,7 +60,10 @@ fun LoginScreen(
     val focusManager = LocalFocusManager.current
 
     LaunchedEffect(uiState.loginSuccess) {
-        if (uiState.loginSuccess) onLoginSuccess()
+        if (uiState.loginSuccess) {
+            viewModel.onLoginNavigated()
+            onLoginSuccess()
+        }
     }
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { snackbarHostState.showSnackbar(it) }

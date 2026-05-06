@@ -8,6 +8,7 @@ import com.wanandroid.core.data.paging.SearchPagingSource
 import com.wanandroid.core.model.Article
 import com.wanandroid.core.model.HotKey
 import com.wanandroid.core.model.User
+import com.wanandroid.core.model.network.runSuspendCatching
 import com.wanandroid.core.model.network.toResult
 import com.wanandroid.core.network.WanApiService
 import kotlinx.coroutines.flow.Flow
@@ -27,9 +28,9 @@ class SearchRepositoryImpl @Inject constructor(
 ) : SearchRepository {
 
     override suspend fun getHotKeys(): Result<List<HotKey>> =
-        runCatching { api.getHotKeys().toResult().getOrThrow() }
+        runSuspendCatching { api.getHotKeys().toResult().getOrThrow() }
 
-    fun getSearchPagingFlow(keyword: String): Flow<PagingData<Article>> =
+    override fun getSearchPagingFlow(keyword: String): Flow<PagingData<Article>> =
         Pager(
             config = PagingConfig(pageSize = 20, enablePlaceholders = false),
             pagingSourceFactory = { SearchPagingSource(api, keyword) },

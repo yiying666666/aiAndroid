@@ -1,5 +1,6 @@
 package com.wanandroid.core.model.network
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -14,3 +15,12 @@ class ApiException(val code: Int, override val message: String) : Exception(mess
 fun <T> ApiResponse<T>.toResult(): Result<T> =
     if (errorCode == 0 && data != null) Result.success(data)
     else Result.failure(ApiException(errorCode, errorMsg.ifBlank { "请求失败，错误码：$errorCode" }))
+
+suspend inline fun <T> runSuspendCatching(block: suspend () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
+    }

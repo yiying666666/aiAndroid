@@ -10,6 +10,8 @@ import com.wanandroid.core.data.repository.NaviRepository
 import com.wanandroid.core.data.repository.NaviRepositoryImpl
 import com.wanandroid.core.data.repository.ProjectRepository
 import com.wanandroid.core.data.repository.ProjectRepositoryImpl
+import com.wanandroid.core.data.repository.SearchRepository
+import com.wanandroid.core.data.repository.SearchRepositoryImpl
 import com.wanandroid.core.data.repository.WechatRepository
 import com.wanandroid.core.data.repository.WechatRepositoryImpl
 import dagger.Binds
@@ -40,5 +42,6 @@ abstract class DataModule {
     @Binds @Singleton
     abstract fun bindMineRepository(impl: MineRepositoryImpl): MineRepository
 
-    // SearchRepositoryImpl 通过 @Inject constructor 直接注入，无需绑定接口
+    @Binds @Singleton
+    abstract fun bindSearchRepository(impl: SearchRepositoryImpl): SearchRepository
 }
