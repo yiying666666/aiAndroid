@@ -1,22 +1,27 @@
 # CLAUDE.md
 
-本文件为 Claude Code（claude.ai/code）在该仓库中工作时提供指导。
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 项目简介
 
-基于 **组件化 + 模块化 + Kotlin + 协程 + Flow + Retrofit + Jetpack Compose + MVVM** 架构实现的 [WanAndroid](https://wanandroid.com) 客户端。API 文档见 [wanandroid.com/blog/show/2](https://wanandroid.com/blog/show/2)，接口 Base URL 为 `https://wanandroid.com`。
+基于 **组件化 + 模块化 + Kotlin + 协程 + Flow + Retrofit + Jetpack Compose + MVVM** 架构实现的 [WanAndroid](https://wanandroid.com) 客户端。API 文档见 [wanandroid.com/blog/show/2](https://wanandroid.com/blog/show/2)，接口 Base URL 为 `https://wanandroid.com`。`minSdk = 23`，`compileSdk = 36`。
 
 ---
 
 ## 构建命令
 
 ```bash
-./gradlew assembleDebug            # 构建 Debug APK
-./gradlew assembleRelease          # 构建 Release APK（已开启混淆）
-./gradlew test                     # 运行所有单元测试
-./gradlew connectedAndroidTest     # 运行仪器测试（需连接设备）
-./gradlew :feature:home:test       # 运行单个模块的单元测试
+./gradlew assembleDebug                  # 构建 Debug APK（默认 dev flavor）
+./gradlew assembleDevDebug               # 构建 dev flavor Debug APK
+./gradlew assembleProdRelease            # 构建 prod flavor Release APK（已开启混淆）
+./gradlew test                           # 运行所有单元测试
+./gradlew connectedAndroidTest           # 运行仪器测试（需连接设备）
+./gradlew :feature:home:test             # 运行单个模块的单元测试
+./gradlew lint                           # 运行所有模块 Lint 检查
+./gradlew :core:network:lint             # 运行单个模块 Lint 检查
 ```
+
+> `core:network` 定义了 `dev` / `prod` 两个 product flavor，两者目前指向同一 Base URL（`https://wanandroid.com`），但构建任务需加 flavor 限定符（如 `assembleDevDebug`）。
 
 ---
 
@@ -50,9 +55,9 @@ Screen（collectAsStateWithLifecycle）
   → WanApiService（Retrofit 接口，ApiResponse<T>.toResult()）
 ```
 
-- API 响应统一用 `ApiResponse<T>` 包裹；`.toResult()` 扩展函数将其转换为 `Result<T>`，当 `errorCode != 0` 时抛出 `ApiException`
-- Repository 层**不对外抛异常**，调用方使用 `.onSuccess / .onFailure` 处理结果
-- 分页页面（首页、项目、公众号、搜索）Repository 返回 `Flow<PagingData<T>>`，由自定义 `*PagingSource` 驱动；ViewModel 调用 `.cachedIn(viewModelScope)`，UI 层用 `collectAsLazyPagingItems()` 消费
+- API 响应统一用 `ApiResponse<T>` 包裹；`.toResult()` 扩展函数将其转换为 `Result<T>`，当 `errorCode != 0` 或 `data == null` 时返回 `Result.failure(ApiException)`
+- Repository 层**不对外抛异常**；所有网络调用用 `runSuspendCatching { }` 包裹，它会重新抛出 `CancellationException` 而捕获其余所有异常，调用方使用 `.onSuccess / .onFailure` 处理结果
+- 分页页面（首页、项目、公众号、搜索）Repository 返回 `Flow<PagingData<T>>`，由自定义 `*PagingSource` 驱动；**分页起始页码为 0**；ViewModel 调用 `.cachedIn(viewModelScope)`，UI 层用 `collectAsLazyPagingItems()` 消费
 
 ---
 
@@ -68,24 +73,23 @@ Screen（collectAsStateWithLifecycle）
 
 `app/src/main/java/com/wanandroid/app/navigation/AppNavigation.kt` 定义两层导航：
 
-- **根 NavHost**：`AppRoute` 密封类 —— `Login`、`Register`、`Main`、`Search`、`ArticleDetail`
-- **嵌套 NavHost**（MainScaffold 内）：`BottomNavItem` 密封类 —— 5 个底部 Tab
+- **根 NavHost**：`AppRoute` 密封类 —— `Splash`、`Login`、`Register`、`Main`、`Search`、`ArticleDetail`
+- **嵌套 NavHost**（MainScaffold 内）：`BottomNavItem` 密封类 —— 5 个底部 Tab（首页、项目、公众号、导航、我的）
 
-启动目标由 `UserPreferencesDataStore.isLoggedIn` 决定；文章详情路由使用 `Uri.encode(url)` 对 URL 参数编码，防止特殊字符破坏路由。
+启动经由 `SplashScreen`，由 `UserPreferencesDataStore.isLoggedIn` 决定跳转 `Main` 还是 `Login`（popUpTo Splash 从返回栈移除）；文章详情路由使用 `Uri.encode(url)` 对 URL 参数编码，防止特殊字符破坏路由。
 
 ### 依赖注入（Hilt）
 
 - `WanApplication` 标注 `@HiltAndroidApp`，`MainActivity` 标注 `@AndroidEntryPoint`
 - 所有 ViewModel 使用 `@HiltViewModel` + `@Inject constructor`
-- `DataModule`（`core/data/di/`）：将 Repository 接口绑定到实现类
-- `NetworkModule`（`core/network/di/`）：提供 `OkHttpClient`、`Retrofit`、`WanApiService`
-- 网络与数据层组件均为 `@Singleton`
+- `DataModule`（`core/data/di/`）：将 Repository 接口绑定到实现类（`@Binds @Singleton`）
+- `NetworkModule`（`core/network/di/`）：提供 `OkHttpClient`、`Retrofit`、`WanApiService`；同时将 `PersistentCookieJar` 绑定为 `CookieCleaner` 接口，供退出登录时清除 Cookie 使用
 
 ### 网络层
 
-- Base URL：`https://wanandroid.com`
+- Base URL：`https://wanandroid.com`（通过 `BuildConfig.BASE_URL` 注入）
 - 序列化：`kotlinx.serialization`，配置 `ignoreUnknownKeys = true`、`coerceInputValues = true`
-- Cookie：`PersistentCookieJar` 持久化到 DataStore，退出登录时清除
+- Cookie：`PersistentCookieJar` 持久化到 DataStore，通过 `CookieCleaner` 接口在退出登录时清除
 - 日志：Debug 包输出 `Level.BODY`，Release 包 `Level.NONE`；Logcat Tag 为 `WanNetwork`
 - 响应拦截器：自动将响应体中的 `https://www.wanandroid.com` 替换为 `https://wanandroid.com`
 - 超时：连接 / 读取 / 写入均为 15 秒
@@ -143,7 +147,7 @@ feature/<name>/src/main/java/com/wanandroid/feature/<name>/
 | Hilt | 2.56.1 | 基于 KSP |
 | Retrofit | 2.11.0 | 搭配 kotlinx-serialization 转换器 |
 | OkHttp | 4.12.0 | |
-| Paging | 3.3.6 | 每页 20 条，禁用占位符 |
+| Paging | 3.3.6 | 每页 20 条，禁用占位符，起始页 0 |
 | Coil | 2.7.0 | 使用 `coil.compose` 加载图片 |
 | DataStore | 1.1.4 | Preferences 模式（非 Proto） |
 | Coroutines | 1.9.0 | 搭配 Flow 使用 |
